@@ -1,6 +1,8 @@
 extends SceneTree
 
-const SUITES: Array = []
+const SUITES: Array = [
+	preload("res://tests/layout_test.gd"),
+]
 
 func _initialize() -> void:
 	var failures := 0
