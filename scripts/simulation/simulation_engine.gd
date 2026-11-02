@@ -27,6 +27,7 @@ var dock_free: Dictionary = {}
 var xfer_state: Dictionary = {}
 var rack_slots: Dictionary = {}
 var blocked_reasons: Dictionary = {}
+var _dock_order: Array = []
 
 var _pallet_counter: int = 1
 var _initial_snapshot: Dictionary = {}
@@ -74,8 +75,10 @@ func setup(layout_path: String, routes_path: String, config_path: String) -> boo
 	resources.add_resource("RD_PARK", 2)
 
 	# Initialize dock availability
+	_dock_order = []
 	for dock_id in layout.dock_positions.keys():
 		dock_free[dock_id] = true
+		_dock_order.append(dock_id)
 
 	# Initialize transfer station state
 	for xfer_id in layout.handoff_stations.keys():
@@ -139,6 +142,7 @@ func _take_snapshot() -> void:
 		"xfer_state": xfer_state.duplicate(true),
 		"rack_slots": rack_slots.duplicate(true),
 		"blocked_reasons": blocked_reasons.duplicate(true),
+		"_dock_order": _dock_order.duplicate(),
 	}
 	for vid in vehicles:
 		var vdata = vehicles[vid]
@@ -158,7 +162,7 @@ func add_pallet(sku: String) -> String:
 
 	# Find first free dock position (FIFO)
 	var dock_id: String = ""
-	for d in layout.dock_positions.keys():
+	for d in _dock_order:
 		if dock_free.get(d, false):
 			dock_id = d
 			break
@@ -199,6 +203,7 @@ func reset() -> void:
 	xfer_state = _initial_snapshot["xfer_state"].duplicate(true)
 	rack_slots = _initial_snapshot["rack_slots"].duplicate(true)
 	blocked_reasons = _initial_snapshot["blocked_reasons"].duplicate(true)
+	_dock_order = _initial_snapshot["_dock_order"].duplicate()
 
 	_pallet_counter = 1
 
