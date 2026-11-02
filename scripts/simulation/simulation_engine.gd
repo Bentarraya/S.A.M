@@ -54,7 +54,6 @@ func setup(layout_path: String, routes_path: String, config_path: String) -> boo
 
 	inventory = InventoryManager.new()
 	tasks = TaskManager.new()
-	resources = ResourceManager.new()
 	events = EventLog.new()
 
 	vehicles.clear()
@@ -62,21 +61,6 @@ func setup(layout_path: String, routes_path: String, config_path: String) -> boo
 	xfer_state.clear()
 	rack_slots.clear()
 	blocked_reasons.clear()
-
-	# Create resources from non-empty waypoint resources + vehicle parks
-	var resource_set: Array = []
-	for w in graph.waypoints.values():
-		var res: String = w.get("resource", "")
-		if res != "" and not resource_set.has(res):
-			resource_set.append(res)
-
-	for res in resource_set:
-		resources.add_resource(res, 1)
-
-	# Vehicle parks have capacity 2 for PE_PARK
-	resources.add_resource("PE_PARK_01", 2)
-	resources.add_resource("PE_PARK_02", 2)
-	resources.add_resource("RD_PARK", 2)
 
 	# Initialize dock availability
 	_dock_order = []
@@ -115,14 +99,47 @@ func setup(layout_path: String, routes_path: String, config_path: String) -> boo
 		v.pallet_id = ""
 		v.blocked_reason = ""
 		v.invalid_transitions = 0
+		var start_res: String = graph.get_waypoint(start_wp).get("resource", "")
 		vehicles[v.id] = {
 			"ref": v,
 			"pos": v.follower.position,
+			"heading": 0.0,
 			"speed": vdata.get("speed", 2.0),
 			"turn_rate": vdata.get("turn_rate", 3.0),
 			"tolerance": vdata.get("tolerance", 0.1),
 			"target_waypoint": "",
+			"home_wp": start_wp,
+			"current_leg_resource": start_res,
+			"station_res": {},
+			"path": [],
+			"path_index": 0,
+			"waiting": false,
+			"pallet_id": "",
 		}
+
+	_setup_resources()
+
+	# Take initial snapshot for reset
+	_pallet_counter = 1
+	_init_dispatcher()
+	_take_snapshot()
+	return true
+
+func _setup_resources() -> void:
+	resources = ResourceManager.new()
+	var resource_set: Array = []
+	for w in graph.waypoints.values():
+		var res: String = w.get("resource", "")
+		if res != "" and not resource_set.has(res):
+			resource_set.append(res)
+
+	for res in resource_set:
+		resources.add_resource(res, 1)
+
+	# Vehicle parks have capacity 2 for PE_PARK
+	resources.add_resource("PE_PARK_01", 2)
+	resources.add_resource("PE_PARK_02", 2)
+	resources.add_resource("RD_PARK", 2)
 
 	# Request parking resources for initial vehicle positions
 	if vehicles.has("PE-01"):
@@ -131,12 +148,6 @@ func setup(layout_path: String, routes_path: String, config_path: String) -> boo
 		resources.request("PE_PARK_02", "PE-02", 0)
 	if vehicles.has("RD-01"):
 		resources.request("RD_PARK", "RD-01", 0)
-
-	# Take initial snapshot for reset
-	_pallet_counter = 1
-	_init_dispatcher()
-	_take_snapshot()
-	return true
 
 func _take_snapshot() -> void:
 	_initial_snapshot = {
@@ -153,6 +164,7 @@ func _take_snapshot() -> void:
 		var vdata = vehicles[vid]
 		_initial_snapshot["vehicles"][vid] = {
 			"pos": vdata["pos"],
+			"heading": vdata.get("heading", 0.0),
 			"state": vdata["ref"].state,
 			"task_id": vdata["ref"].task_id,
 			"pallet_id": vdata["ref"].pallet_id,
@@ -213,7 +225,7 @@ func reset() -> void:
 	dock_free = _initial_snapshot["dock_free"].duplicate(true)
 	xfer_state = _initial_snapshot["xfer_state"].duplicate(true)
 	rack_slots = _initial_snapshot["rack_slots"].duplicate(true)
-	blocked_reasons = _initial_snapshot["blocked_reasons"].duplicate(true)
+	blocked_reasons.clear()
 	_dock_order = _initial_snapshot["_dock_order"].duplicate()
 
 	_pallet_counter = 1
@@ -223,15 +235,26 @@ func reset() -> void:
 		if vehicles.has(vid):
 			var v = vehicles[vid]["ref"]
 			v.follower.position = vdata["pos"]
+			v.follower.heading = vdata.get("heading", 0.0)
 			v.state = vdata["state"]
 			v.task_id = vdata["task_id"]
 			v.pallet_id = vdata["pallet_id"]
 			v.blocked_reason = ""
 			v.invalid_transitions = 0
+			vehicles[vid]["pos"] = vdata["pos"]
+			vehicles[vid]["heading"] = vdata.get("heading", 0.0)
+			vehicles[vid]["target_waypoint"] = ""
 			vehicles[vid]["path"] = []
 			vehicles[vid]["path_index"] = 0
 			vehicles[vid]["waiting"] = false
 			vehicles[vid]["pallet_id"] = vdata["pallet_id"]
+			vehicles[vid]["station_res"] = {}
+			var home_wp: String = vehicles[vid].get("home_wp", "")
+			if home_wp != "" and graph != null:
+				vehicles[vid]["current_leg_resource"] = graph.get_waypoint(home_wp).get("resource", "")
+
+	_setup_resources()
 
 	if dispatcher != null:
+		dispatcher._seq = 0
 		dispatcher._wait_timers.clear()
