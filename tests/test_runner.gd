@@ -5,6 +5,7 @@ const SUITES: Array = [
 	preload("res://tests/route_test.gd"),
 	preload("res://tests/resource_manager_test.gd"),
 	preload("res://tests/task_lifecycle_test.gd"),
+	preload("res://tests/vehicle_test.gd"),
 ]
 
 func _initialize() -> void:
