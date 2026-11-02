@@ -2,8 +2,16 @@ extends RefCounted
 
 enum Status {CREATED, ASSIGNED_PE, PE_PICKED, AT_XFER, ASSIGNED_RD, RD_PICKED, STORED, COMPLETED}
 
-# Single-successor transition table; -1 means terminal.
-const _NEXT := [Status.ASSIGNED_PE, Status.PE_PICKED, Status.AT_XFER, Status.ASSIGNED_RD, Status.RD_PICKED, Status.STORED, Status.COMPLETED, -1]
+const _NEXT := {
+	Status.CREATED: [Status.ASSIGNED_PE],
+	Status.ASSIGNED_PE: [Status.PE_PICKED],
+	Status.PE_PICKED: [Status.AT_XFER],
+	Status.AT_XFER: [Status.ASSIGNED_RD],
+	Status.ASSIGNED_RD: [Status.RD_PICKED],
+	Status.RD_PICKED: [Status.STORED],
+	Status.STORED: [Status.COMPLETED],
+	Status.COMPLETED: [],
+}
 
 var _tasks: Dictionary = {}
 var _next_id: int = 1
@@ -13,11 +21,12 @@ func create_task(pallet_id: String) -> String:
 		return ""
 	var id := "TASK-%04d" % _next_id
 	_next_id += 1
-	_tasks[id] = {"id": id, "pallet_id": pallet_id, "status": Status.CREATED}
+	_tasks[id] = {"id": id, "pallet_id": pallet_id, "status": Status.CREATED, "pe_id": "", "rd_id": ""}
 	return id
 
 func transition(task_id: String, s: int) -> bool:
-	if not _tasks.has(task_id) or s != _NEXT[_tasks[task_id]["status"]]:
+	var t: Dictionary = _tasks.get(task_id, {})
+	if t.is_empty() or not _NEXT.has(t["status"]) or not _NEXT[t["status"]].has(s):
 		return false
 	_tasks[task_id]["status"] = s
 	return true

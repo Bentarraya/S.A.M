@@ -2,8 +2,15 @@ extends RefCounted
 
 enum Status {AT_DOCK, ASSIGNED_TO_PE, IN_TRANSIT_PE, AT_XFER, ASSIGNED_TO_RD, IN_TRANSIT_RD, STORED}
 
-# Single-successor transition table; -1 means terminal.
-const _NEXT := [Status.ASSIGNED_TO_PE, Status.IN_TRANSIT_PE, Status.AT_XFER, Status.ASSIGNED_TO_RD, Status.IN_TRANSIT_RD, Status.STORED, -1]
+const _NEXT := {
+	Status.AT_DOCK: [Status.ASSIGNED_TO_PE],
+	Status.ASSIGNED_TO_PE: [Status.IN_TRANSIT_PE],
+	Status.IN_TRANSIT_PE: [Status.AT_XFER],
+	Status.AT_XFER: [Status.ASSIGNED_TO_RD],
+	Status.ASSIGNED_TO_RD: [Status.IN_TRANSIT_RD],
+	Status.IN_TRANSIT_RD: [Status.STORED],
+	Status.STORED: [],
+}
 
 var id: String = ""
 var sku: String = ""
@@ -13,7 +20,7 @@ var destination_rack_id: String = ""
 var task_id: String = ""
 
 func set_status(s: int) -> bool:
-	if s != _NEXT[status]:
+	if not _NEXT.has(status) or not _NEXT[status].has(s):
 		return false
 	status = s
 	return true
