@@ -19,6 +19,7 @@
 - All simulation classes are `RefCounted` and must run under `--headless` with no scene.
 - Tests run with `godot --headless --path . --script tests/test_runner.gd` and exit non-zero on failure.
 - Every completed task leaves the project runnable and committed.
+- Engine-generated `*.uid` sidecar files are permitted and tracked (Godot 4.4+ emits them); `.superpowers/` is git-ignored workspace scratch.
 - Exactly three vehicles exist: `PE-01`, `PE-02` (class `PE`), `RD-01` (class `RD`).
 - Invalid state transitions must be rejected and logged, never silently applied.
 
@@ -219,8 +220,8 @@ func _ready() -> void:
 	add_child(light)
 	var cam := Camera3D.new()
 	cam.position = Vector3(18, 24, 20)
-	cam.look_at(Vector3(18, 0, 4))
 	add_child(cam)
+	cam.look_at(Vector3(18, 0, 4))
 ```
 
 - [ ] **Step 4: Write `scenes/main.tscn`**
