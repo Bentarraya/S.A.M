@@ -116,6 +116,26 @@ func test_reset() -> int:
 	_check(e.resources.is_held_by("PE_PARK_01", "PE-01"), "reset restores park holder")
 	return failures - before
 
+func test_determinism() -> int:
+	var before := failures
+	var out: Array = []
+	for run_index in [0, 1]:
+		var e := SimulationEngine.new()
+		e.setup("res://data/warehouse_layout.json", "res://data/routes.json", "res://data/vehicle_config.json")
+		e.run_demo()
+		for i in range(20000):
+			e.step(1.0 / 60.0)
+		var snap := []
+		for vid in ["PE-01", "PE-02", "RD-01"]:
+			snap.append([vid, e.vehicles[vid]["pos"], e.vehicles[vid]["ref"].state])
+		var pids: Array = e.inventory._pallets.keys()
+		pids.sort()
+		for pid in pids:
+			snap.append([pid, e.inventory.get_pallet(pid).status])
+		out.append(snap)
+	_check(str(out[0]) == str(out[1]), "identical replay after 20000 steps")
+	return failures - before
+
 func run() -> int:
 	var e := SimulationEngine.new()
 	_check(e.setup("res://data/warehouse_layout.json", "res://data/routes.json", "res://data/vehicle_config.json"), "engine setup")
@@ -140,5 +160,6 @@ func run() -> int:
 	test_full_workflow()
 	test_two_pallets()
 	test_reset()
+	test_determinism()
 
 	return failures

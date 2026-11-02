@@ -12,5 +12,6 @@ window/size/viewport_height=768
 [rendering]
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+scaling_3d/scale=1.0
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=0
 textures/default_filters/use_nearest_mipmap_filter=false

@@ -19,6 +19,8 @@ const SPEEDS := [0.5, 1.0, 2.0, 4.0]
 const SPEED_LABELS := ["0.5x", "1x", "2x", "4x"]
 const CAMERA_LABELS := ["Overview", "Top-down", "Follow"]
 const CAMERA_PRESETS := ["overview", "top_down", "follow"]
+const GRAPHICS_LABELS := ["Low", "Medium"]
+const GRAPHICS_SCALES := [0.6, 1.0]
 const TASK_ROWS := 8
 const EVENT_ROWS := 10
 const COUNT_KEYS := ["Dock", "PE", "Xfer", "RD", "Stored", "Completed"]
@@ -112,6 +114,18 @@ func _build_left(root: Control) -> void:
 		func(index: int) -> void: camera_preset_changed.emit(CAMERA_PRESETS[index])
 	)
 	box.add_child(camera)
+
+	box.add_child(_label("Graphics", 11))
+	var graphics := OptionButton.new()
+	graphics.add_theme_font_size_override("font_size", 12)
+	for graphics_label in GRAPHICS_LABELS:
+		graphics.add_item(graphics_label)
+	graphics.selected = 1
+	# Shadows stay off in both presets; main.tscn sets shadow_enabled = false.
+	graphics.item_selected.connect(
+		func(index: int) -> void: get_viewport().scaling_3d_scale = GRAPHICS_SCALES[index]
+	)
+	box.add_child(graphics)
 
 	_clock_label = _label("Clock: 0.0 s", 12)
 	box.add_child(_clock_label)
