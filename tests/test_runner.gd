@@ -2,6 +2,7 @@ extends SceneTree
 
 const SUITES: Array = [
 	preload("res://tests/layout_test.gd"),
+	preload("res://tests/route_test.gd"),
 ]
 
 func _initialize() -> void:
