@@ -7,5 +7,5 @@ func _ready() -> void:
 	add_child(light)
 	var cam := Camera3D.new()
 	cam.position = Vector3(18, 24, 20)
-	cam.look_at(Vector3(18, 0, 4))
 	add_child(cam)
+	cam.look_at(Vector3(18, 0, 4))
