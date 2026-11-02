@@ -2,6 +2,7 @@ extends Node3D
 
 const SimulationEngine = preload("res://scripts/simulation/simulation_engine.gd")
 const WarehouseBuilder = preload("res://scripts/app/warehouse_builder.gd")
+const RouteOverlay = preload("res://scripts/app/route_overlay.gd")
 const Pallet = preload("res://scripts/entities/pallet.gd")
 
 const LAYOUT_PATH := "res://data/warehouse_layout.json"
@@ -12,6 +13,7 @@ const FIXED_DT := 1.0 / 60.0
 const MAX_CATCHUP_STEPS := 8
 
 @onready var hud: CanvasLayer = $HUD
+@onready var camera: Camera3D = $Camera3D
 
 var sim: SimulationEngine
 var world: Dictionary = {}
@@ -19,9 +21,8 @@ var accumulator := 0.0
 var paused := false
 var speed_multiplier := 1.0
 var selected_vehicle := "PE-01"
-# Assigned by the route overlay task.
-var route_overlay: Node3D = null
-var waypoint_labels: Node3D = null
+var camera_preset := "overview"
+var route_overlay: RouteOverlay = null
 
 var _pallet_nodes: Dictionary = {}
 
@@ -31,8 +32,14 @@ func _ready() -> void:
 		push_error("Failed to set up simulation")
 		return
 	world = WarehouseBuilder.build_world(self, sim.layout, sim.graph)
+	route_overlay = RouteOverlay.new()
+	route_overlay.name = "RouteOverlay"
+	add_child(route_overlay)
+	route_overlay.build(sim.graph, sim.layout)
+	route_overlay.visible = false
 	_wire_hud()
 	hud.set_selected_vehicle(selected_vehicle)
+	_set_camera_preset(camera_preset)
 
 func _wire_hud() -> void:
 	hud.start_pressed.connect(_on_start_pressed)
@@ -70,8 +77,8 @@ func _on_route_overlay_toggled(v: bool) -> void:
 		route_overlay.visible = v
 
 func _on_waypoint_labels_toggled(v: bool) -> void:
-	if waypoint_labels != null:
-		waypoint_labels.visible = v
+	if route_overlay != null:
+		route_overlay.set_labels_visible(v)
 
 func _on_camera_preset_changed(preset: String) -> void:
 	_set_camera_preset(preset)
@@ -80,8 +87,17 @@ func _on_vehicle_selected(veh_id: String) -> void:
 	selected_vehicle = veh_id
 	hud.set_selected_vehicle(veh_id)
 
-func _set_camera_preset(_preset: String) -> void:
-	pass  # camera presets arrive with the route overlay task
+func _set_camera_preset(preset: String) -> void:
+	camera_preset = preset
+	match preset:
+		"overview":
+			camera.position = Vector3(18, 24, 20)
+			camera.look_at(Vector3(18, 0, 4))
+		"top_down":
+			camera.position = Vector3(18, 30, 4.01)
+			camera.look_at(Vector3(18, 0, 4))
+		"follow":
+			pass  # followed in _process
 
 func _physics_process(delta: float) -> void:
 	if sim == null or paused:
@@ -95,12 +111,19 @@ func _physics_process(delta: float) -> void:
 	if steps == MAX_CATCHUP_STEPS:
 		accumulator = 0.0
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if sim == null:
 		return
 	_sync_vehicles()
 	_sync_racks()
 	_sync_pallets()
+	route_overlay.update_vehicle_markers(sim.vehicles)
+	if camera_preset == "follow":
+		var v: Dictionary = sim.vehicles.get(selected_vehicle, {})
+		if not v.is_empty():
+			var pos: Vector3 = v["pos"]
+			camera.position = camera.position.lerp(pos + Vector3(-8, 6, 8), min(1.0, delta * 4.0))
+			camera.look_at(pos)
 	hud.update_state(sim, paused, Engine.get_frames_per_second())
 
 func _sync_vehicles() -> void:
