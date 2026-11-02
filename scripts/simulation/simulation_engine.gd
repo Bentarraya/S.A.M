@@ -10,12 +10,16 @@ const InventoryManager = preload("res://scripts/simulation/inventory_manager.gd"
 const TaskManager = preload("res://scripts/simulation/task_manager.gd")
 const ResourceManager = preload("res://scripts/simulation/resource_manager.gd")
 const EventLog = preload("res://scripts/simulation/event_log.gd")
+const Dispatcher = preload("res://scripts/simulation/dispatcher.gd")
 
 const PalletStatus = Pallet.Status
 const TaskStatus = TaskManager.Status
 
+var dispatcher: Dispatcher
+
 var time: float = 0.0
 var step_count: int = 0
+var last_dt: float = 1.0 / 60.0
 var layout: WarehouseLayout
 var graph: RouteGraph
 var inventory: InventoryManager
@@ -130,6 +134,7 @@ func setup(layout_path: String, routes_path: String, config_path: String) -> boo
 
 	# Take initial snapshot for reset
 	_pallet_counter = 1
+	_init_dispatcher()
 	_take_snapshot()
 	return true
 
@@ -156,6 +161,9 @@ func _take_snapshot() -> void:
 func step(dt: float) -> void:
 	time += dt
 	step_count += 1
+	last_dt = dt
+	if dispatcher != null:
+		dispatcher.step(self)
 
 func add_pallet(sku: String) -> String:
 	var pallet_id := "PLT-%04d" % _pallet_counter
@@ -184,6 +192,9 @@ func add_pallet(sku: String) -> String:
 	events.log_event(time, "pallet_spawned", "Pallet " + pallet_id + " (" + sku + ") at " + dock_id)
 
 	return pallet_id
+
+func _init_dispatcher() -> void:
+	dispatcher = Dispatcher.new()
 
 func run_demo() -> void:
 	add_pallet("SKU-A")
@@ -217,3 +228,10 @@ func reset() -> void:
 			v.pallet_id = vdata["pallet_id"]
 			v.blocked_reason = ""
 			v.invalid_transitions = 0
+			vehicles[vid]["path"] = []
+			vehicles[vid]["path_index"] = 0
+			vehicles[vid]["waiting"] = false
+			vehicles[vid]["pallet_id"] = vdata["pallet_id"]
+
+	if dispatcher != null:
+		dispatcher._wait_timers.clear()
