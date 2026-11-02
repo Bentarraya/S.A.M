@@ -1,0 +1,7 @@
+{
+  "vehicles": [
+    {"id": "PE-01", "class": "PE", "start_waypoint": "PE_PARK_01", "speed": 2.0, "turn_rate": 3.0, "tolerance": 0.1},
+    {"id": "PE-02", "class": "PE", "start_waypoint": "PE_PARK_02", "speed": 2.0, "turn_rate": 3.0, "tolerance": 0.1},
+    {"id": "RD-01", "class": "RD", "start_waypoint": "RD_PARK", "speed": 1.5, "turn_rate": 2.5, "tolerance": 0.1}
+  ]
+}
