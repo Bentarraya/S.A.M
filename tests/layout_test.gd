@@ -35,8 +35,10 @@ func run() -> int:
 	_check(l.areas["DOCK_ROOM"] == Rect2(Vector2(0, 0), Vector2(12, 8)), "DOCK_ROOM Rect2")
 	_check(l.areas["STORAGE_ROOM"] == Rect2(Vector2(16, 0), Vector2(20, 8)), "STORAGE_ROOM Rect2")
 
-	# Fix round 1: malformed/non-JSON input fails safely
+	# Fix round 1: malformed/non-JSON input fails safely.
+	# Plain-text fixture (not .godot config) so Godot's parser doesn't log
+	# an ERROR line that reads like a test failure.
 	var l2 := WarehouseLayout.new()
-	_check(l2.load_from_file("res://project.godot") == false, "non-JSON file returns false")
+	_check(l2.load_from_file("res://tests/fixtures/invalid_json.txt") == false, "non-JSON file returns false")
 
 	return failures

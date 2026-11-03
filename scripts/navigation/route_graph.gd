@@ -10,8 +10,12 @@ func load_from_file(path: String) -> bool:
 		printerr("Failed to open routes file: " + path)
 		return false
 
-	var data = JSON.parse_string(file.get_as_text())
+	# Instance JSON.parse is quiet; static parse_string spams stderr on
+	# expected invalid input (e.g. negative tests).
+	var json := JSON.new()
+	var parse_ok := json.parse(file.get_as_text()) == OK
 	file.close()
+	var data = json.get_data() if parse_ok else null
 	if typeof(data) != TYPE_DICTIONARY or not (data.get("waypoints") is Array) or not (data.get("edges") is Array):
 		printerr("Invalid routes JSON: " + path)
 		return false

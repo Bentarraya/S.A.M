@@ -82,8 +82,12 @@ func setup(layout_path: String, routes_path: String, config_path: String) -> boo
 		printerr("Failed to open vehicle config: " + config_path)
 		return false
 
-	var config_data = JSON.parse_string(config_file.get_as_text())
+	# Instance JSON.parse is quiet; static parse_string spams stderr on
+	# expected invalid input.
+	var config_json := JSON.new()
+	var config_ok := config_json.parse(config_file.get_as_text()) == OK
 	config_file.close()
+	var config_data = config_json.get_data() if config_ok else null
 	if typeof(config_data) != TYPE_DICTIONARY or not config_data.has("vehicles"):
 		printerr("Invalid vehicle config")
 		return false

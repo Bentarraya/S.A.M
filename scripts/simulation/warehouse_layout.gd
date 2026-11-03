@@ -16,10 +16,13 @@ func load_from_file(path: String) -> bool:
 	var json_string = file.get_as_text()
 	file.close()
 
-	var data = JSON.parse_string(json_string)
-	if typeof(data) != TYPE_DICTIONARY:
-		printerr("JSON parse error or invalid root type")
+	# Instance JSON.parse is quiet; static parse_string spams stderr with
+	# ERROR lines on expected invalid input (e.g. negative tests).
+	var json := JSON.new()
+	if json.parse(json_string) != OK or typeof(json.get_data()) != TYPE_DICTIONARY:
+		printerr("JSON parse error or invalid root type: " + json.get_error_message())
 		return false
+	var data: Dictionary = json.get_data()
 
 	if not _validate(data):
 		return false
