@@ -9,6 +9,8 @@ const LAYOUT_PATH := "res://data/warehouse_layout.json"
 const ROUTES_PATH := "res://data/routes.json"
 const CONFIG_PATH := "res://data/vehicle_config.json"
 const FIXED_DT := 1.0 / 60.0
+# Rack boxes are 2 m tall; pallets sit just above the top surface (indicators at 2.02).
+const RACK_PALLET_Y := 2.11
 # Cap catch-up steps so a slow frame cannot spiral into a long stall.
 const MAX_CATCHUP_STEPS := 8
 
@@ -95,7 +97,7 @@ func _set_camera_preset(preset: String) -> void:
 			camera.look_at(Vector3(18, 0, 4))
 		"top_down":
 			camera.position = Vector3(18, 30, 4.01)
-			camera.look_at(Vector3(18, 0, 4))
+			camera.look_at(Vector3(18, 0, 4), Vector3(0, 0, -1))
 		"follow":
 			pass  # followed in _process
 
@@ -187,7 +189,7 @@ func _place_pallet(node: MeshInstance3D, p) -> void:
 		pos = sim.layout.handoff_stations[p.location_id]
 	elif sim.layout.rack_slots.has(p.location_id):
 		pos = sim.layout.rack_slots[p.location_id]
-		y = 2.11
+		y = RACK_PALLET_Y
 	else:
 		node.visible = false
 		return
