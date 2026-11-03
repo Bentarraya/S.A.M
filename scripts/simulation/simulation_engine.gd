@@ -190,12 +190,10 @@ func add_pallet(sku: String) -> String:
 	if dock_id == "":
 		return ""
 
+	if not inventory.add_pallet(pallet_id, sku, dock_id):
+		return ""
 	_pallet_counter += 1
 	dock_free[dock_id] = false
-
-	if not inventory.add_pallet(pallet_id, sku, dock_id):
-		dock_free[dock_id] = true
-		return ""
 
 	var pallet = inventory.get_pallet(pallet_id)
 	pallet.status = PalletStatus.AT_DOCK
