@@ -78,7 +78,7 @@ up. Restart the simulation after editing any data file.
 
 | Date | Test suite | Scene smoke (headless, 300 frames) | Observed FPS (1366x768) |
 | --- | --- | --- | --- |
-| 2026-11-03 | `ALL TESTS PASSED` | Passed, 0 `SCRIPT ERROR`/`ERROR:` lines | Not yet measured — pending user run |
+| 2026-11-03 | `ALL TESTS PASSED` | Passed, 0 `SCRIPT ERROR`/`ERROR:` lines | Low (0.6×): avg 59 / min 58 • Medium (1.0×): avg 58 / min 52 |
 
 The FPS figure is only recorded after a physical run on the test laptop
 (`godot --path .`, press Run Demo, observe the in-HUD FPS counter).
