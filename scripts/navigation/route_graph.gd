@@ -41,18 +41,19 @@ func load_from_file(path: String) -> bool:
 		if not waypoints.has(e["from"]) or not waypoints.has(e["to"]):
 			printerr("Edge references unknown waypoint: " + str(e))
 			return false
+		# Resource arbitration is waypoint-based: the dispatcher reserves the
+		# target waypoint's resource before stepping (see Dispatcher). Edges
+		# carry only topology.
 		var rec := {
 			"from": e["from"],
 			"to": e["to"],
 			"class": e.get("class", "both"),
-			# Resource is the target waypoint's resource, so arriving reserves that spot/lane.
-			"resource": waypoints[e["to"]]["resource"],
 			"bidir": e.get("bidir", true),
 		}
 		edge_list.append(rec)
-		adj[rec["from"]].append({"to": rec["to"], "class": rec["class"], "resource": rec["resource"]})
+		adj[rec["from"]].append({"to": rec["to"], "class": rec["class"]})
 		if rec["bidir"]:
-			adj[rec["to"]].append({"to": rec["from"], "class": rec["class"], "resource": waypoints[rec["from"]]["resource"]})
+			adj[rec["to"]].append({"to": rec["from"], "class": rec["class"]})
 
 	return true
 
