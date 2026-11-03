@@ -114,6 +114,7 @@ func _build_left(root: Control) -> void:
 		func(index: int) -> void: camera_preset_changed.emit(CAMERA_PRESETS[index])
 	)
 	box.add_child(camera)
+	box.add_child(_label("Drag to orbit • Wheel to zoom", 10))
 
 	box.add_child(_label("Graphics", 11))
 	var graphics := OptionButton.new()

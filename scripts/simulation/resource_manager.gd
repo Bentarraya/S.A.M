@@ -33,6 +33,14 @@ func request(id: String, owner: String, seq: int) -> bool:
 	queue.insert(pos, {"owner": owner, "seq": seq})
 	return false
 
+# Give up a pending request: a failed assignment attempt must not stay in the
+# queue, or the next release hands the resource to a vehicle that moved on.
+func cancel(id: String, owner: String) -> void:
+	var queue: Array = _waiters.get(id, [])
+	for i in range(queue.size() - 1, -1, -1):
+		if queue[i]["owner"] == owner:
+			queue.remove_at(i)
+
 func release(id: String, owner: String) -> bool:
 	if not _holders.has(id) or not _holders[id].has(owner):
 		return false

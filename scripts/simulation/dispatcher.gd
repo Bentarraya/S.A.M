@@ -89,21 +89,23 @@ func _assign_pe_tasks(engine) -> void:
 				break
 			var dock_id: String = p.location_id
 			if not _try_request(engine, dock_id, vid):
+				engine.resources.cancel(dock_id, vid)
 				_set_blocked(engine, v, vid, "waiting:" + dock_id, "pe_blocked", "%s failed to reserve %s" % [vid, dock_id])
 				continue
+			vdata["station_res"][dock_id] = true
 			if not _try_request(engine, xfer_id, vid):
+				engine.resources.cancel(xfer_id, vid)
 				_set_blocked(engine, v, vid, "waiting:" + xfer_id, "pe_blocked", "%s failed to reserve %s" % [vid, xfer_id])
 				_release_station_res(engine, vid, vdata, dock_id)
 				continue
 
 			engine.xfer_state[xfer_id] = "RESERVED"
-			vdata["station_res"][dock_id] = true
 			vdata["station_res"][xfer_id] = true
 
 			var pickup_wp: String = dock_id.replace("DOCK-", "DOCK_PICKUP_")
 			var drop_wp: String = xfer_id.replace("XFER-", "XFER_DROP_")
-			var home: String = _home_wp(engine, vdata, v)
-			var path: Array = _join(engine.graph.find_path(home, pickup_wp, "PE"),
+			var start: String = _path_start(engine, vdata, v)
+			var path: Array = _join(engine.graph.find_path(start, pickup_wp, "PE"),
 				engine.graph.find_path(pickup_wp, drop_wp, "PE"))
 			if path.is_empty():
 				_release_station_res(engine, vid, vdata, dock_id)
@@ -142,7 +144,10 @@ func _assign_rd_tasks(engine) -> void:
 		for vid in engine.vehicles:
 			var vdata: Dictionary = engine.vehicles[vid]
 			var v: Vehicle = vdata["ref"]
-			if v.vehicle_class != "RD" or v.state != Vehicle.State.IDLE or v.pallet_id != "":
+			if v.vehicle_class != "RD" or v.pallet_id != "":
+				continue
+			# A returning RD takes the next waiting pallet instead of parking first.
+			if v.state != Vehicle.State.IDLE and v.state != Vehicle.State.RETURNING:
 				continue
 
 			var rack_id: String = _free_rack(engine)
@@ -151,20 +156,22 @@ func _assign_rd_tasks(engine) -> void:
 				return
 			var xfer_id: String = p.location_id
 			if not _try_request(engine, rack_id, vid):
+				engine.resources.cancel(rack_id, vid)
 				_set_blocked(engine, v, vid, "waiting:" + rack_id, "rd_blocked", "%s failed to reserve %s" % [vid, rack_id])
 				continue
+			vdata["station_res"][rack_id] = true
 			if not _try_request(engine, xfer_id, vid):
+				engine.resources.cancel(xfer_id, vid)
 				_set_blocked(engine, v, vid, "waiting:" + xfer_id, "rd_blocked", "%s failed to reserve %s" % [vid, xfer_id])
 				_release_station_res(engine, vid, vdata, rack_id)
 				continue
 
-			vdata["station_res"][rack_id] = true
 			vdata["station_res"][xfer_id] = true
 
 			var drop_wp: String = xfer_id.replace("XFER-", "XFER_DROP_")
 			var place_wp: String = "RACK_PLACE_" + _rack_code(rack_id)
-			var home: String = _home_wp(engine, vdata, v)
-			var path: Array = _join(engine.graph.find_path(home, drop_wp, "RD"),
+			var start: String = _path_start(engine, vdata, v)
+			var path: Array = _join(engine.graph.find_path(start, drop_wp, "RD"),
 				engine.graph.find_path(drop_wp, place_wp, "RD"))
 			if path.is_empty():
 				_release_station_res(engine, vid, vdata, rack_id)
@@ -364,6 +371,15 @@ func _wait_tick(engine, vid: String, vdata: Dictionary, v: Vehicle, dt: float) -
 		vdata["path_index"] = 0
 		vdata["target_rack"] = ""
 		_transition_vehicle(engine, v, vid, Vehicle.State.RETURNING)
+
+# Where a new path starts: the waypoint the vehicle is heading to (or standing
+# on) if it is mid-route, else its home park.
+func _path_start(engine, vdata: Dictionary, v: Vehicle) -> String:
+	var path: Array = vdata.get("path", [])
+	var idx: int = vdata.get("path_index", 0)
+	if idx < path.size():
+		return path[idx]
+	return _home_wp(engine, vdata, v)
 
 func _home_wp(engine, vdata: Dictionary, v: Vehicle) -> String:
 	if vdata.get("home_wp", "") != "":

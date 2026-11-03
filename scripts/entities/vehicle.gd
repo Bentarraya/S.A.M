@@ -23,7 +23,8 @@ const _RD_NEXT := {
 	State.LOADED_TO_RACK: [State.ALIGN_RACK],
 	State.ALIGN_RACK: [State.PLACING],
 	State.PLACING: [State.RETURNING],
-	State.RETURNING: [State.IDLE],
+	# A returning RD chains straight onto the next handoff instead of parking first.
+	State.RETURNING: [State.IDLE, State.TO_XFER],
 }
 
 var id: String = ""

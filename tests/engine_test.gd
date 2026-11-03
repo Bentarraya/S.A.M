@@ -91,6 +91,71 @@ func test_handoff_exclusive_use() -> int:
 	_check(p2 != null and p2.status == e.PalletStatus.STORED, "pallet 2 stored (handoff test)")
 	return failures - before
 
+# Regression: after storing, the RD must take the next pallet waiting at a
+# handoff instead of driving home and parking first.
+func test_rd_chains_to_next_pallet() -> int:
+	var before := failures
+	var e: SimulationEngine = SimulationEngine.new()
+	e.setup("res://data/warehouse_layout.json", "res://data/routes.json", "res://data/vehicle_config.json")
+	var pid1: String = e.add_pallet("SKU-A")
+	e.add_pallet("SKU-B")
+	var steps: int = 0
+	while steps < 40000 and e.inventory.get_pallet(pid1).status != e.PalletStatus.STORED:
+		e.step(1.0 / 60.0)
+		steps += 1
+	_check(e.inventory.get_pallet(pid1).status == e.PalletStatus.STORED, "first pallet stored (chain test)")
+	var chained := false
+	var parked := false
+	for i in range(4000):
+		e.step(1.0 / 60.0)
+		var vdata: Dictionary = e.vehicles["RD-01"]
+		var state: int = vdata["ref"].state
+		if state == e.Vehicle.State.IDLE:
+			parked = true
+		if state == e.Vehicle.State.TO_XFER and vdata["path"].size() > 0:
+			chained = vdata["path"][0] != "RD_PARK"
+			break
+	_check(chained, "RD chains from return to the next handoff")
+	_check(not parked, "RD never idles at the park between pallets")
+	return failures - before
+
+# Regression: failed reservations must not leave phantom waiters behind.
+# Six pallets through two handoff stations used to deadlock with both XFER
+# resources stuck on an idle PE.
+func test_many_pallets_no_stall() -> int:
+	var before := failures
+	var e: SimulationEngine = SimulationEngine.new()
+	e.setup("res://data/warehouse_layout.json", "res://data/routes.json", "res://data/vehicle_config.json")
+	var pids: Array = []
+	var steps: int = 0
+	while steps < 120000:
+		e.step(1.0 / 60.0)
+		steps += 1
+		# Only three docks: feed a new pallet whenever one is free.
+		if pids.size() < 6 and steps % 120 == 0:
+			var pid: String = e.add_pallet("SKU-%d" % pids.size())
+			if pid != "":
+				pids.append(pid)
+		if pids.size() < 6:
+			continue
+		var done := true
+		for pid in pids:
+			if e.inventory.get_pallet(pid).status != e.PalletStatus.STORED:
+				done = false
+				break
+		for vid in e.vehicles:
+			if e.vehicles[vid]["ref"].state != e.Vehicle.State.IDLE:
+				done = false
+		if done:
+			break
+	_check(pids.size() == 6, "six pallets spawned (stall test)")
+	for pid in pids:
+		_check(e.inventory.get_pallet(pid).status == e.PalletStatus.STORED, "pallet %s stored (stall test)" % pid)
+	for res_id in e.resources._capacity.keys():
+		if res_id.begins_with("DOCK-") or res_id.begins_with("XFER-") or res_id.begins_with("RACK-"):
+			_check(e.resources.holders(res_id).is_empty(), "no holder for " + res_id + " (stall test)")
+	return failures - before
+
 func test_two_pallets() -> int:
 	var before := failures
 	var e: SimulationEngine = SimulationEngine.new()
@@ -150,7 +215,7 @@ func test_reset() -> int:
 	_check(e.time == 0.0, "reset restores time")
 	_check(e.step_count == 0, "reset restores step_count")
 	_check(e.blocked_reasons.is_empty(), "reset clears blocked reasons")
-	_check(e.vehicles["PE-01"]["pos"] == Vector3(8, 0, 1), "reset restores vehicle pos")
+	_check(e.vehicles["PE-01"]["pos"] == Vector3(8, 0, 2.5), "reset restores vehicle pos")
 	_check(e.vehicles["PE-01"]["heading"] == 0.0, "reset restores vehicle heading")
 	_check(e.vehicles["PE-01"]["target_waypoint"] == "", "reset clears target waypoint")
 	_check(e.resources.is_held_by("PE_PARK_01", "PE-01"), "reset restores park holder")
@@ -181,7 +246,7 @@ func run() -> int:
 	_check(e.setup("res://data/warehouse_layout.json", "res://data/routes.json", "res://data/vehicle_config.json"), "engine setup")
 	_check(e.vehicles.size() == 3, "3 vehicles")
 	_check(e.vehicles.has("PE-01") and e.vehicles.has("PE-02") and e.vehicles.has("RD-01"), "vehicle ids")
-	_check(e.vehicles["PE-01"]["pos"] == Vector3(8, 0, 1), "PE-01 parked")
+	_check(e.vehicles["PE-01"]["pos"] == Vector3(8, 0, 2.5), "PE-01 parked")
 	_check(e.rack_slots.size() == 8, "8 rack slots tracked")
 
 	var id := e.add_pallet("SKU-A")
@@ -198,6 +263,8 @@ func run() -> int:
 
 	# Full workflow tests
 	test_full_workflow()
+	test_rd_chains_to_next_pallet()
+	test_many_pallets_no_stall()
 	test_two_pallets()
 	test_handoff_exclusive_use()
 	test_reset()

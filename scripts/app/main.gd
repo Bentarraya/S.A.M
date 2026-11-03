@@ -24,6 +24,18 @@ var paused := false
 var speed_multiplier := 1.0
 var selected_vehicle := "PE-01"
 var camera_preset := "overview"
+# Orbit camera: focus point + spherical offset. Presets seed these; drag and
+# wheel then move them freely.
+const CAMERA_ORBIT := {
+	"overview": {"focus": Vector3(18, 0, 4), "yaw": PI / 2, "pitch": 0.983, "dist": 28.84},
+	"top_down": {"focus": Vector3(18, 0, 4), "yaw": PI / 2, "pitch": 1.55, "dist": 30.0},
+	"follow": {"focus": Vector3.ZERO, "yaw": 3.0 * PI / 4, "pitch": 0.487, "dist": 12.81},
+}
+var orbit_focus := Vector3(18, 0, 4)
+var orbit_yaw := PI / 2
+var orbit_pitch := 0.983
+var orbit_distance := 28.84
+var _dragging := false
 var route_overlay: RouteOverlay = null
 
 var _pallet_nodes: Dictionary = {}
@@ -91,15 +103,37 @@ func _on_vehicle_selected(veh_id: String) -> void:
 
 func _set_camera_preset(preset: String) -> void:
 	camera_preset = preset
-	match preset:
-		"overview":
-			camera.position = Vector3(18, 24, 20)
-			camera.look_at(Vector3(18, 0, 4))
-		"top_down":
-			camera.position = Vector3(18, 30, 4.01)
-			camera.look_at(Vector3(18, 0, 4), Vector3(0, 0, -1))
-		"follow":
-			pass  # followed in _process
+	var orbit: Dictionary = CAMERA_ORBIT.get(preset, CAMERA_ORBIT["overview"])
+	orbit_focus = orbit["focus"]
+	orbit_yaw = orbit["yaw"]
+	orbit_pitch = orbit["pitch"]
+	orbit_distance = orbit["dist"]
+	if preset == "follow":
+		var v: Dictionary = sim.vehicles.get(selected_vehicle, {})
+		if not v.is_empty():
+			orbit_focus = v["pos"]
+	_apply_orbit()
+
+func _apply_orbit() -> void:
+	var cp := cos(orbit_pitch)
+	var offset := Vector3(cp * cos(orbit_yaw), sin(orbit_pitch), cp * sin(orbit_yaw)) * orbit_distance
+	camera.position = orbit_focus + offset
+	camera.look_at(orbit_focus)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
+			orbit_distance = maxf(4.0, orbit_distance * 0.9)
+			_apply_orbit()
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+			orbit_distance = minf(60.0, orbit_distance * 1.1)
+			_apply_orbit()
+		elif event.button_index == MOUSE_BUTTON_LEFT:
+			_dragging = event.pressed
+	elif event is InputEventMouseMotion and _dragging:
+		orbit_yaw -= event.relative.x * 0.005
+		orbit_pitch = clampf(orbit_pitch - event.relative.y * 0.005, 0.12, 1.55)
+		_apply_orbit()
 
 func _physics_process(delta: float) -> void:
 	if sim == null or paused:
@@ -123,9 +157,8 @@ func _process(delta: float) -> void:
 	if camera_preset == "follow":
 		var v: Dictionary = sim.vehicles.get(selected_vehicle, {})
 		if not v.is_empty():
-			var pos: Vector3 = v["pos"]
-			camera.position = camera.position.lerp(pos + Vector3(-8, 6, 8), min(1.0, delta * 4.0))
-			camera.look_at(pos)
+			orbit_focus = orbit_focus.lerp(v["pos"], min(1.0, delta * 4.0))
+			_apply_orbit()
 	hud.update_state(sim, paused, Engine.get_frames_per_second())
 
 func _sync_vehicles() -> void:

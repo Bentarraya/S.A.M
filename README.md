@@ -46,6 +46,8 @@ All controls are in the on-screen HUD; there are no keyboard bindings.
 | Routes | Show/hide the route graph overlay |
 | Waypoint IDs | Show/hide waypoint labels on the overlay |
 | Camera | Overview, Top-down, or Follow (follows the selected vehicle) |
+| Drag (left mouse) | Orbit the camera around the current view |
+| Mouse wheel | Zoom in / out |
 | Vehicle cards | Select a vehicle (used by the Follow camera) |
 | Graphics | Low (3D scale 0.6) or Medium (3D scale 1.0) |
 
