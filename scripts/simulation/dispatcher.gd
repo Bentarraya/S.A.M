@@ -241,6 +241,9 @@ func _advance_vehicles(engine, dt: float) -> void:
 		vdata["path_index"] = idx + 1
 		var at_end: bool = idx + 1 >= path.size()
 
+		# Station resource is kept past dropoff/pickup until the body leaves the pad.
+		_release_xfer_if_vacated(engine, vdata, vid, cur_wp)
+
 		if v.vehicle_class == "PE":
 			if v.state == Vehicle.State.TO_DOCK and cur_wp.begins_with("DOCK_PICKUP"):
 				_begin_wait(engine, vdata, vid, "PE_PICKUP", pickup_seconds["PE"])
@@ -251,6 +254,19 @@ func _advance_vehicles(engine, dt: float) -> void:
 				_begin_wait(engine, vdata, vid, "RD_PICKUP", pickup_seconds["RD"])
 			elif v.state == Vehicle.State.LOADED_TO_RACK and at_end and cur_wp == vdata.get("place_wp", ""):
 				_begin_wait(engine, vdata, vid, "RD_DROPOFF", dropoff_seconds["RD"])
+
+# Called when a vehicle ARRIVES at a waypoint while returning/leaving a handoff:
+# if it was keeping the XFER station resource past its pickup/dropoff and has now
+# physically stepped off the pad, the resource is finally released.
+func _release_xfer_if_vacated(engine, vdata: Dictionary, vid: String, arrived_wp: String) -> void:
+	var xfer_id: String = vdata.get("xfer_vacate", "")
+	if xfer_id == "":
+		return
+	var drop_wp: String = xfer_id.replace("XFER-", "XFER_DROP_")
+	if arrived_wp == drop_wp:
+		return  # still on the pad
+	_release_station_res(engine, vid, vdata, xfer_id)
+	vdata["xfer_vacate"] = ""
 
 func _begin_wait(engine, vdata: Dictionary, vid: String, kind: String, seconds: float) -> void:
 	var v: Vehicle = vdata["ref"]
@@ -301,9 +317,14 @@ func _wait_tick(engine, vid: String, vdata: Dictionary, v: Vehicle, dt: float) -
 		if dock_id != "":
 			engine.dock_free[dock_id] = true
 			_release_station_res(engine, vid, vdata, dock_id)
-		_release_station_res(engine, vid, vdata, vdata["target_xfer"])
+		# Keep the XFER resource held until the PE's body has left the pad —
+		# the departing PE and an incoming RD would otherwise overlap here
+		# (their leg resources differ, so nothing else arbitrates this).
+		# _release_xfer_if_vacated finishes the release once the PE arrives at
+		# its next waypoint.
 		engine.events.log_event(engine.time, "xfer_drop", "%s dropped %s at %s" % [vid, v.pallet_id, vdata["target_xfer"]])
 		v.pallet_id = ""
+		vdata["xfer_vacate"] = vdata["target_xfer"]
 		vdata["path"] = engine.graph.find_path(vdata.get("dropoff_wp", ""), vdata.get("home_wp", ""), "PE")
 		vdata["path_index"] = 0
 		vdata["dropoff_wp"] = ""
@@ -320,7 +341,10 @@ func _wait_tick(engine, vid: String, vdata: Dictionary, v: Vehicle, dt: float) -
 		_transition_vehicle(engine, v, vid, Vehicle.State.LOADED_TO_RACK)
 		if vdata.get("target_xfer", "") != "":
 			engine.xfer_state[vdata["target_xfer"]] = "FREE"
-			_release_station_res(engine, vid, vdata, vdata["target_xfer"])
+			# Keep the resource held until the RD's body leaves the pad —
+			# same vacate rule as the PE dropoff. _release_xfer_if_vacated
+			# completes it once the RD reaches its next waypoint.
+			vdata["xfer_vacate"] = vdata["target_xfer"]
 			vdata["target_xfer"] = ""
 
 	else:  # RD_DROPOFF

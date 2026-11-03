@@ -19,7 +19,7 @@
     {"id": "XFER_JUNCTION", "pos": [14, 0, 4], "type": "turn", "class": "PE", "resource": "XFER_JUNCTION"},
     {"id": "XFER_DROP_01", "pos": [14, 0, 2], "type": "handoff", "class": "both", "resource": "XFER-01"},
     {"id": "XFER_DROP_02", "pos": [14, 0, 6], "type": "handoff", "class": "both", "resource": "XFER-02"},
-    {"id": "XFER_EXIT", "pos": [15, 0, 1], "type": "turn", "class": "PE", "resource": "XFER_EXIT"},
+    {"id": "XFER_EXIT", "pos": [15, 0, 1], "type": "turn", "class": "PE", "resource": "XFER-01"},
     {"id": "RD_PARK", "pos": [17, 0, 1], "type": "parking", "class": "RD", "resource": "RD_PARK"},
     {"id": "RD_XFER_QUEUE", "pos": [16.5, 0, 4], "type": "wait", "class": "RD", "resource": "RD_XFER_QUEUE"},
     {"id": "RD_XFER_APPROACH_01", "pos": [16, 0, 2], "type": "turn", "class": "RD", "resource": "RD_XFER_QUEUE"},

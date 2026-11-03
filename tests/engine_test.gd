@@ -51,6 +51,46 @@ func test_full_workflow() -> int:
 	_check(e.events.entries.size() > 5, "events logged")
 	return failures - before
 
+# Regression: PE departing a handoff and RD entering it must never occupy the
+# pad area simultaneously. The XFER station resource must stay held until the
+# previous occupant's BODY has left the pad (arrived at its next waypoint).
+func test_handoff_exclusive_use() -> int:
+	var before := failures
+	var e: SimulationEngine = SimulationEngine.new()
+	e.setup("res://data/warehouse_layout.json", "res://data/routes.json", "res://data/vehicle_config.json")
+	var pid1: String = e.add_pallet("SKU-A")
+	var pid2: String = e.add_pallet("SKU-B")
+	var xfer_pads := {"XFER-01": e.graph.waypoint_pos("XFER_DROP_01"), "XFER-02": e.graph.waypoint_pos("XFER_DROP_02")}
+	var pad_radius := 1.0  # pad is 2x2, so 1.0 from center covers the whole pad
+	var limit: int = 80000
+	var steps: int = 0
+	while steps < limit:
+		e.step(1.0 / 60.0)
+		steps += 1
+		var both_stored: bool = true
+		for pid in [pid1, pid2]:
+			var pal: Object = e.inventory.get_pallet(pid)
+			if pal == null or pal.status != e.PalletStatus.STORED:
+				both_stored = false
+		if both_stored:
+			break
+		# While any vehicle still holds an XFER resource, no OTHER vehicle body may be inside that pad.
+		for xfer_id in xfer_pads:
+			for vid in e.vehicles:
+				if not e.resources.is_held_by(xfer_id, vid):
+					continue
+				for other_vid in e.vehicles:
+					if other_vid == vid:
+						continue
+					var op: Vector3 = e.vehicles[other_vid]["pos"]
+					var inside: bool = Vector2(op.x, op.z).distance_to(Vector2(xfer_pads[xfer_id].x, xfer_pads[xfer_id].z)) < pad_radius
+					_check(not inside, "%s body inside %s pad while held by %s (step %d)" % [other_vid, xfer_id, vid, steps])
+	var p1: Object = e.inventory.get_pallet(pid1)
+	var p2: Object = e.inventory.get_pallet(pid2)
+	_check(p1 != null and p1.status == e.PalletStatus.STORED, "pallet 1 stored (handoff test)")
+	_check(p2 != null and p2.status == e.PalletStatus.STORED, "pallet 2 stored (handoff test)")
+	return failures - before
+
 func test_two_pallets() -> int:
 	var before := failures
 	var e: SimulationEngine = SimulationEngine.new()
@@ -159,6 +199,7 @@ func run() -> int:
 	# Full workflow tests
 	test_full_workflow()
 	test_two_pallets()
+	test_handoff_exclusive_use()
 	test_reset()
 	test_determinism()
 
